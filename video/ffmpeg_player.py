@@ -389,7 +389,7 @@ class FFmpegPlayer(QWidget):
                 "-an", "-sn",
                 "-i", self._url,
                 "-an", "-sn",
-                "-vf", f"scale='min({max(self._output_width, 960)},iw)':-2,fps=20",
+                "-vf", f"scale='min({self._output_width},iw)':-2,fps=20",
                 "-f", "rawvideo",
                 "-pix_fmt", "bgr24",
                 "-",
@@ -662,9 +662,12 @@ class FFmpegPlayer(QWidget):
         painter = QPainter(self)
         painter.fillRect(self.rect(), _SURFACE_BG)
         if self._frame is not None and not self._frame.isNull():
-            # "cover" — fill the whole tile, crop overflow. No black bars.
+            # "contain" — fit the whole image inside the tile, preserving
+            # aspect ratio; letterbox instead of cropping scene content.
+            # This matters for sub streams (often 4:3) shown in 16:9 tiles:
+            # cover would slice off the top and bottom of the picture.
             painter.setClipRect(self.rect())
-            target = self._cover_rect(self._frame.size(), self.size())
+            target = self._fit_rect(self._frame.size(), self.size())
             painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
             painter.drawImage(target, self._frame)
         else:
@@ -672,19 +675,21 @@ class FFmpegPlayer(QWidget):
             painter.drawText(self.rect(), Qt.AlignCenter, self._status_msg)
 
     @staticmethod
-    def _cover_rect(src: QSize, dst: QSize) -> QRect:
-        """Object-fit: cover — scale so dst is fully covered, center-crop excess."""
+    def _fit_rect(src: QSize, dst: QSize) -> QRect:
+        """Object-fit: contain — scale so src fits entirely inside dst,
+        preserving aspect ratio; letterbox the remaining area."""
         if src.width() <= 0 or src.height() <= 0:
             return QRect(0, 0, dst.width(), dst.height())
         sr = src.width() / src.height()
         dr = dst.width() / dst.height()
-        if dr > sr:
-            # destination is wider than source aspect → match width, overflow vertically
+        if sr > dr:
+            # source is wider than destination → match width, bars top/bottom
             w = dst.width()
             h = int(w / sr)
             x = 0
             y = (dst.height() - h) // 2
         else:
+            # source is taller or equal → match height, bars left/right
             h = dst.height()
             w = int(h * sr)
             x = (dst.width() - w) // 2

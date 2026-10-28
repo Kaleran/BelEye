@@ -107,6 +107,10 @@ class DvripClient(QObject):
         self._logged_in: bool = False
         self._pending_monitors: dict[int, _PendingMonitor] = {}
         self._pending_playback: dict | None = None
+        # [FIX claim-dedup] Channels already started within this session; avoids
+        # re-sending MONITOR_START_REQ on duplicate/late claim ACKs and from
+        # starting a channel whose own ACK has not yet arrived.
+        self._started_monitors: set[int] = set()
         # [FIX arch] Multi-event file-query state. We send one request per event
         # filter and aggregate. Native XMEye does the same — wildcard alone
         # misses motion/alarm segments on most Xiongmai firmwares.
@@ -490,6 +494,8 @@ class DvripClient(QObject):
         self._rx_watchdog.stop()
         self._logged_in = False
         self._session_id = 0
+        # A new session may re-claim these channels; clear the started guard.
+        self._started_monitors.clear()
         # [FIX archive3] Don't leave a half-finished paginated file query in
         # mid-flight — next session would resume from a stale cursor.
         self._file_query_event_queue = []
@@ -776,6 +782,8 @@ class DvripClient(QObject):
         # the pre-claim OPMonitor inside start_playback already sent its own
         # Start, so there is nothing to do for it here.
         for pending in list(self._pending_monitors.values()):
+            if pending.channel in self._started_monitors:
+                continue  # already started within this session
             self._send(
                 MsgId.MONITOR_START_REQ,
                 {
@@ -792,6 +800,7 @@ class DvripClient(QObject):
                     },
                 },
             )
+            self._started_monitors.add(pending.channel)
             log.info("[NVR] monitor start ch=%d", pending.channel)
 
     def _handle_monitor_data(self, pkt: Packet) -> None:

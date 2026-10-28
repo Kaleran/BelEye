@@ -78,16 +78,15 @@ def load_nvrs() -> list[NvrConfig]:
         log.warning("[config] nvrs file malformed (not a list); ignoring.")
         return []
     out = [NvrConfig.from_dict(item) for item in data if isinstance(item, dict)]
-    # Migration: main stream is the default for all NVR configs. Existing
-    # saved configs may still have prefer_substream=True from before this
-    # change; normalize them so tiles open on Main by default.
-    changed = False
+    # Migration: main stream is the default for all NVR configs. Existing saved
+    # configs may still have prefer_substream=True from before this change;
+    # normalize them in memory so tiles open on Main by default. We deliberately
+    # do NOT write back here — a loader must not have file-writing side effects;
+    # the normalized value persists on the next settings save.
     for nvr in out:
         if nvr.prefer_substream:
             nvr.prefer_substream = False
-            changed = True
-    if changed:
-        save_nvrs(out)
+            log.info("[config] normalized nvr %s prefer_substream -> False", nvr.name)
     log.info("[config] loaded %d nvrs", len(out))
     return out
 

@@ -454,6 +454,20 @@ class MainWindow(QMainWindow):
             client.deleteLater()
         self._nvr_control.clear()
 
+    def _drop_control_client(self, nvr_id: str) -> None:
+        """Close and remove the persistent control client for one NVR.
+
+        Used when connection params change so the next poll recreates the
+        session against the new host/port/user/password.
+        """
+        client = self._nvr_control.pop(nvr_id, None)
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                log.exception("[NVR] drop control client close failed")
+            client.deleteLater()
+
     def _open_settings(self) -> None:
         if self.grid.is_reorder_mode():
             return  # don't open settings while reordering
@@ -488,6 +502,18 @@ class MainWindow(QMainWindow):
         form = NvrForm(nvr=nvr, password=pwd, parent=self)
         if form.exec() == QDialog.Accepted:
             updated, new_pwd = form.result_data()
+            # [FIX reconnect] If connection params changed, drop the persistent
+            # control client so the next poll recreates it against the new
+            # host/port/user. Otherwise the old socket keeps hitting the
+            # previous recorder forever.
+            params_changed = (
+                updated.host != nvr.host
+                or updated.port != nvr.port
+                or updated.username != nvr.username
+                or new_pwd != pwd
+            )
+            if params_changed:
+                self._drop_control_client(nvr.id)
             nvrcfg.update_nvr(nvrs, updated)
             keystore.set_password(nvr_keyring_user(updated.id), new_pwd)
             self._reload_cameras()

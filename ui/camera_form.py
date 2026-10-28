@@ -208,6 +208,13 @@ class CameraForm(QDialog):
         self._probe_thread = None
 
     def _on_accept(self) -> None:
+        if self._probe_thread is not None:
+            log.info("[FIX] Probe running; refusing accept")
+            QMessageBox.warning(
+                self, self.tr("Test in progress"),
+                self.tr("Wait for the connection test to finish before saving.")
+            )
+            return
         cam, _ = self._collect()
         if not cam.host:
             QMessageBox.warning(

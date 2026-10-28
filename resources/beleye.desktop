@@ -7,6 +7,7 @@ Categories=AudioVideo;Video;
 Terminal=false
 StartupNotify=true
 StartupWMClass=BelEye
-Exec=/home/zura/Проекты/My/BelEye/.venv/bin/python /home/zura/Проекты/My/BelEye/main.py
+# install-desktop.sh rewrites Exec/Path to absolute values at install time.
+Exec=$PROJECT_ROOT/main.py
 Icon=beleye
-Path=/home/zura/Проекты/My/BelEye
+Path=$PROJECT_ROOT

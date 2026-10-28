@@ -9,6 +9,8 @@ dependencies = [
     "platformdirs>=4.0",
 ]
 
+py-modules = ["main"]
+
 [project.optional-dependencies]
 theme = ["pyqtdarktheme>=2.1"]
 
