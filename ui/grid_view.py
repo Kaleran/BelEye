@@ -216,13 +216,17 @@ class GridView(QWidget):
 
         With "high quality everywhere" on, every tile sits on Main — which is
         the point: expanding a tile then changes nothing at all, no re-claim
-        and no decoder restart. Otherwise only the focused tile gets Main, so
-        the NVR encoder isn't loaded with full-resolution sessions nobody is
-        looking at full-size.
+        and no decoder restart. Without it, tiles stay on their configured
+        stream (main by default, sub stream only if the user explicitly
+        switched via the context menu) instead of being force-switched to
+        Extra1 based on focus.
         """
         if prefs.hq_all():
             return "Main"
-        return "Main" if tile_id == self._focused else "Extra1"
+        tile = self._tiles.get(tile_id)
+        if tile is not None and hasattr(tile, "_current_stream"):
+            return tile._current_stream
+        return "Main"
 
     def apply_quality_policy(self) -> None:
         """Bring every tile to its target stream, one switch at a time.
