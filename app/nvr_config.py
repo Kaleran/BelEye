@@ -51,7 +51,7 @@ class NvrConfig:
             port=int(data.get("port", 34567)),
             username=data.get("username", "admin"),
             channels=[NvrChannel.from_dict(c) for c in (data.get("channels") or [])],
-            prefer_substream=bool(data.get("prefer_substream", True)),
+            prefer_substream=bool(data.get("prefer_substream", False)),
         )
 
     def to_dict(self) -> dict:
@@ -78,6 +78,16 @@ def load_nvrs() -> list[NvrConfig]:
         log.warning("[config] nvrs file malformed (not a list); ignoring.")
         return []
     out = [NvrConfig.from_dict(item) for item in data if isinstance(item, dict)]
+    # Migration: main stream is the default for all NVR configs. Existing
+    # saved configs may still have prefer_substream=True from before this
+    # change; normalize them so tiles open on Main by default.
+    changed = False
+    for nvr in out:
+        if nvr.prefer_substream:
+            nvr.prefer_substream = False
+            changed = True
+    if changed:
+        save_nvrs(out)
     log.info("[config] loaded %d nvrs", len(out))
     return out
 

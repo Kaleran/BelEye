@@ -132,7 +132,7 @@ class NvrChannelTile(DraggableTileMixin, QFrame):
         # neither a fresh start nor a reconnect costs an extra switch.
         self._current_stream = (
             "Main" if prefs.hq_all()
-            else ("Extra1" if getattr(nvr, "prefer_substream", True) else "Main")
+            else ("Extra1" if getattr(nvr, "prefer_substream", False) else "Main")
         )
         self._reconnect_idx = 0
         self._reconnect_backoff_ms = [3000, 5000, 10000, 30000]
