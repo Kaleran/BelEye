@@ -110,6 +110,7 @@ class GridView(QWidget):
                 tile.removeRequested.connect(self.removeRequested)
                 tile.reconnectRequested.connect(self._on_reconnect)
                 tile.swapRequested.connect(self._on_swap)
+                tile.streamSwitchRequested.connect(self._on_stream_switch)
                 tile._current_url = new_url
                 if self._reorder_mode:
                     tile.set_reorder_mode(True)
@@ -168,6 +169,7 @@ class GridView(QWidget):
                 tile.swapRequested.connect(self._on_swap)
                 tile.archiveRequested.connect(self.archiveRequested)
                 tile.streamSwitched.connect(self._on_stream_switched)
+                tile.streamSwitchRequested.connect(self._on_stream_switch)
                 if self._reorder_mode:
                     tile.set_reorder_mode(True)
                 self._tiles[tid] = tile
@@ -288,6 +290,38 @@ class GridView(QWidget):
         if tile:
             tile.stop()
             tile.start()
+
+    def _on_stream_switch(self, tile_id: str, stream_type: str) -> None:
+        """Toggle a camera or NVR channel between main and sub stream."""
+        tile = self._tiles.get(tile_id)
+        if tile is None:
+            return
+
+        if isinstance(tile, NvrChannelTile):
+            # NVR channel: switch via set_preferred_stream (Main / Extra1)
+            tile.set_preferred_stream(stream_type)
+            log.info("[stream] NVR tile %s switched to %s stream", tile_id, stream_type)
+            return
+
+        # RTSP camera: persist stream_type and reload
+        from app import config as cfg
+        from app.secrets import get_password
+        from app.rtsp import build_rtsp_url
+
+        cameras = cfg.load_cameras()
+        for cam in cameras:
+            if cam.id == tile_id:
+                cam.stream_type = stream_type
+                cfg.save_cameras(cameras)
+                break
+        else:
+            return
+
+        new_url = build_rtsp_url(cam, get_password(tile_id))
+        tile.camera = cam
+        tile._current_url = new_url
+        tile.reload_credentials()
+        log.info("[stream] camera %s switched to %s stream", tile_id, stream_type)
 
     def _clear_layout(self, layout: QGridLayout) -> None:
         while layout.count():

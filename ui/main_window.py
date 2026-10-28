@@ -463,19 +463,33 @@ class MainWindow(QMainWindow):
             self._reload_cameras()
 
     def _on_edit_camera(self, camera_id: str) -> None:
-        from .camera_form import CameraForm
         from app import secrets as keystore
 
         cameras = cfg.load_cameras()
         cam = next((c for c in cameras if c.id == camera_id), None)
-        if not cam:
+        if cam:
+            pwd = keystore.get_password(cam.id)
+            from .camera_form import CameraForm
+            form = CameraForm(camera=cam, password=pwd, parent=self)
+            if form.exec() == QDialog.Accepted:
+                updated, new_pwd = form.result_data()
+                cfg.update_camera(cameras, updated)
+                keystore.set_password(updated.id, new_pwd)
+                self._reload_cameras()
             return
-        pwd = keystore.get_password(cam.id)
-        form = CameraForm(camera=cam, password=pwd, parent=self)
+
+        # Not a camera — try NVR config (Recorder settings from NVR tile)
+        nvrs = nvrcfg.load_nvrs()
+        nvr = next((n for n in nvrs if n.id == camera_id), None)
+        if not nvr:
+            return
+        pwd = keystore.get_password(nvr_keyring_user(nvr.id))
+        from .nvr_form import NvrForm
+        form = NvrForm(nvr=nvr, password=pwd, parent=self)
         if form.exec() == QDialog.Accepted:
             updated, new_pwd = form.result_data()
-            cfg.update_camera(cameras, updated)
-            keystore.set_password(updated.id, new_pwd)
+            nvrcfg.update_nvr(nvrs, updated)
+            keystore.set_password(nvr_keyring_user(updated.id), new_pwd)
             self._reload_cameras()
 
     def _on_remove_camera(self, camera_id: str) -> None:

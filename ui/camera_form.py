@@ -74,6 +74,12 @@ class CameraForm(QDialog):
         self.transport_combo = QComboBox()
         self.transport_combo.addItems(["tcp", "udp"])
         self.transport_combo.setCurrentText(self._camera.transport)
+        self.stream_combo = QComboBox()
+        self.stream_combo.addItems([self.tr("Main stream"), self.tr("Sub stream")])
+        self.stream_combo.setCurrentText(
+            self.tr("Main stream") if self._camera.stream_type == "main"
+            else self.tr("Sub stream")
+        )
 
         # [FIX icons] Painted eye icon — the previous "👁" emoji rendered as
         # a tofu box on systems without an emoji font.
@@ -98,6 +104,7 @@ class CameraForm(QDialog):
         form.addRow(self.tr("Password:"), pass_container)
         form.addRow(self.tr("Path:"), self.path_edit)
         form.addRow(self.tr("Transport:"), self.transport_combo)
+        form.addRow(self.tr("Stream:"), self.stream_combo)
 
         self.test_btn = QPushButton(self.tr("Test connection"))
         self.test_btn.clicked.connect(self._on_test)
@@ -147,6 +154,7 @@ class CameraForm(QDialog):
         self.test_status.setStyleSheet(f"color: {theme.token(token)};")
 
     def _collect(self) -> tuple[CameraConfig, str]:
+        stream_type = "sub" if self.stream_combo.currentText() == self.tr("Sub stream") else "main"
         cam = CameraConfig(
             id=self._camera.id,
             name=self.name_edit.text().strip() or "Camera",
@@ -155,6 +163,7 @@ class CameraForm(QDialog):
             username=self.user_edit.text(),
             path=self.path_edit.text().strip() or "/",
             transport=self.transport_combo.currentText(),
+            stream_type=stream_type,
         )
         return cam, self.pass_edit.text()
 

@@ -11,10 +11,17 @@ def build_rtsp_url(camera: CameraConfig, password: str = "") -> str:
     a path — many cameras (Hikvision, Dahua default) reject `rtsp://host:554/`
     but accept `rtsp://host:554`. Equivalent to the working `ffplay` example:
         ffplay -rtsp_transport tcp rtsp://admin:password@192.168.0.63:554
+
+    When the path is left at its default ("/"), the ``stream_type`` field
+    selects a sensible default: "main" keeps the root path, "sub" appends
+    "/substream".
     """
     raw_path = (camera.path or "").strip()
     if raw_path in ("", "/"):
-        path = ""
+        if camera.stream_type == "sub":
+            path = "/substream"
+        else:
+            path = ""
     else:
         path = raw_path if raw_path.startswith("/") else "/" + raw_path
 

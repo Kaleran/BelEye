@@ -22,6 +22,7 @@ class CameraConfig:
     username: str = ""
     path: str = "/"
     transport: str = "tcp"  # "tcp" or "udp"
+    stream_type: str = "main"  # "main" or "sub"
 
     @classmethod
     def from_dict(cls, data: dict) -> "CameraConfig":
@@ -33,6 +34,7 @@ class CameraConfig:
             username=data.get("username", ""),
             path=data.get("path", "/"),
             transport=data.get("transport", "tcp"),
+            stream_type=data.get("stream_type", "main"),
         )
 
     def to_dict(self) -> dict:

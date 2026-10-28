@@ -71,6 +71,7 @@ class NvrChannelTile(DraggableTileMixin, QFrame):
     # on abort, and on the no-op paths. GridView serializes switching by
     # waiting for this, so a request that never replied would wedge the queue.
     streamSwitched = Signal(str, str)  # tile_id, resulting stream
+    streamSwitchRequested = Signal(str, str)  # tile_id, new stream ("Main" | "Extra1")
 
     @property
     def drag_id(self) -> str:
@@ -524,14 +525,27 @@ class NvrChannelTile(DraggableTileMixin, QFrame):
         act_reconnect = QAction(self.tr("Reconnect"), menu)
         act_remove = QAction(self.tr("Hide this channel"), menu)
         act_edit = QAction(self.tr("Recorder settings..."), menu)
+        stream_label = (
+            self.tr("Switch to sub stream")
+            if self._current_stream == "Extra1"
+            else self.tr("Switch to main stream")
+        )
+        act_stream = QAction(stream_label, menu)
         menu.addAction(act_archive)
         menu.addSeparator()
         menu.addAction(act_reconnect)
         menu.addAction(act_remove)
+        menu.addAction(act_stream)
         menu.addAction(act_edit)
         act_archive.triggered.connect(
             lambda: self.archiveRequested.emit(self.nvr.id, self.channel.number))
         act_reconnect.triggered.connect(lambda: self.reconnectRequested.emit(self._tile_id))
         act_remove.triggered.connect(lambda: self.removeRequested.emit(self._tile_id))
+        act_stream.triggered.connect(
+            lambda: self.streamSwitchRequested.emit(
+                self._tile_id,
+                "Extra1" if self._current_stream == "Main" else "Main",
+            )
+        )
         act_edit.triggered.connect(lambda: self.editRequested.emit(self.nvr.id))
         menu.exec(event.globalPos())

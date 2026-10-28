@@ -380,6 +380,7 @@ class CameraTile(DraggableTileMixin, QFrame):
     editRequested = Signal(str)
     removeRequested = Signal(str)
     reconnectRequested = Signal(str)
+    streamSwitchRequested = Signal(str, str)  # camera_id, new stream_type ("main" | "sub")
     swapRequested = Signal(str, str)  # source_id, target_id
 
     @property
@@ -466,13 +467,26 @@ class CameraTile(DraggableTileMixin, QFrame):
         act_edit = QAction(self.tr("Edit..."), menu)
         act_remove = QAction(self.tr("Delete"), menu)
         act_reconnect = QAction(self.tr("Reconnect"), menu)
+        stream_label = (
+            self.tr("Switch to sub stream")
+            if self.camera.stream_type == "main"
+            else self.tr("Switch to main stream")
+        )
+        act_stream = QAction(stream_label, menu)
         menu.addAction(act_edit)
         menu.addAction(act_reconnect)
         menu.addSeparator()
+        menu.addAction(act_stream)
         menu.addAction(act_remove)
         act_edit.triggered.connect(lambda: self.editRequested.emit(self.camera.id))
         act_remove.triggered.connect(lambda: self.removeRequested.emit(self.camera.id))
         act_reconnect.triggered.connect(lambda: self.reconnectRequested.emit(self.camera.id))
+        act_stream.triggered.connect(
+            lambda: self.streamSwitchRequested.emit(
+                self.camera.id,
+                "sub" if self.camera.stream_type == "main" else "main",
+            )
+        )
         menu.exec(event.globalPos())
 
 

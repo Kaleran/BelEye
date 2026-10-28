@@ -103,6 +103,21 @@
         <source>timeout (camera not responding)</source>
         <translation>таймаут (камера не отвечает)</translation>
     </message>
+    <message>
+        <location filename="../../ui/camera_form.py" line="100" />
+        <source>Stream:</source>
+        <translation>Поток:</translation>
+    </message>
+    <message>
+        <location filename="../../ui/camera_form.py" line="101" />
+        <source>Main stream</source>
+        <translation>Main поток</translation>
+    </message>
+    <message>
+        <location filename="../../ui/camera_form.py" line="102" />
+        <source>Sub stream</source>
+        <translation>Суб поток</translation>
+    </message>
 </context><context>
     <name>CameraTile</name>
     <message>
@@ -119,6 +134,16 @@
         <location filename="../../ui/camera_widget.py" line="468" />
         <source>Reconnect</source>
         <translation>Переподключить</translation>
+    </message>
+    <message>
+        <location filename="../../ui/camera_widget.py" line="474" />
+        <source>Switch to sub stream</source>
+        <translation>Переключить на суб поток</translation>
+    </message>
+    <message>
+        <location filename="../../ui/camera_widget.py" line="475" />
+        <source>Switch to main stream</source>
+        <translation>Переключить на основной поток</translation>
     </message>
 </context><context>
     <name>FFmpegPlayer</name>
