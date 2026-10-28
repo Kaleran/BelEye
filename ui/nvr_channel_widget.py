@@ -526,9 +526,9 @@ class NvrChannelTile(DraggableTileMixin, QFrame):
         act_remove = QAction(self.tr("Hide this channel"), menu)
         act_edit = QAction(self.tr("Recorder settings..."), menu)
         stream_label = (
-            self.tr("Switch to sub stream")
+            self.tr("Switch to main stream")
             if self._current_stream == "Extra1"
-            else self.tr("Switch to main stream")
+            else self.tr("Switch to sub stream")
         )
         act_stream = QAction(stream_label, menu)
         menu.addAction(act_archive)
