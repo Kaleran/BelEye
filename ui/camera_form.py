@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from app.config import CameraConfig
 from app.rtsp import build_rtsp_url
+from ui.language import language
 from video.stream_monitor import probe_rtsp
 from .icon_util import eye_icon
 from .theme import theme
@@ -42,7 +43,7 @@ class _ProbeWorker(QObject):
             ok, info = probe_rtsp(self._url, timeout_s=8.0,
                                   transport=self._transport)
         except Exception as exc:
-            ok, info = False, f"внутренняя ошибка: {exc}"
+            ok, info = False, self.tr("internal error: {exc}").format(exc=exc)
         self.done.emit(ok, info)
 
 
@@ -54,7 +55,7 @@ class CameraForm(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Камера")
+        self.setWindowTitle(self.tr("Camera"))
         self.setMinimumWidth(420)
         self._camera = camera or CameraConfig()
 
@@ -90,15 +91,15 @@ class CameraForm(QDialog):
         pass_container.setLayout(pass_row)
 
         form = QFormLayout()
-        form.addRow("Название:", self.name_edit)
-        form.addRow("Хост / IP:", self.host_edit)
-        form.addRow("Порт:", self.port_spin)
-        form.addRow("Логин:", self.user_edit)
-        form.addRow("Пароль:", pass_container)
-        form.addRow("Путь:", self.path_edit)
-        form.addRow("Транспорт:", self.transport_combo)
+        form.addRow(self.tr("Name:"), self.name_edit)
+        form.addRow(self.tr("Host / IP:"), self.host_edit)
+        form.addRow(self.tr("Port:"), self.port_spin)
+        form.addRow(self.tr("Login:"), self.user_edit)
+        form.addRow(self.tr("Password:"), pass_container)
+        form.addRow(self.tr("Path:"), self.path_edit)
+        form.addRow(self.tr("Transport:"), self.transport_combo)
 
-        self.test_btn = QPushButton("Проверить соединение")
+        self.test_btn = QPushButton(self.tr("Test connection"))
         self.test_btn.clicked.connect(self._on_test)
         self.test_status = QLabel("")
         self.test_status.setWordWrap(True)
@@ -108,11 +109,11 @@ class CameraForm(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         ok_btn = buttons.button(QDialogButtonBox.Ok)
-        ok_btn.setText("Сохранить")
+        ok_btn.setText(self.tr("Save"))
         ok_btn.setProperty("primary", True)
         ok_btn.setCursor(Qt.PointingHandCursor)
         cancel_btn = buttons.button(QDialogButtonBox.Cancel)
-        cancel_btn.setText("Отмена")
+        cancel_btn.setText(self.tr("Cancel"))
         cancel_btn.setCursor(Qt.PointingHandCursor)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -132,7 +133,7 @@ class CameraForm(QDialog):
 
     def _toggle_pass(self, on: bool) -> None:
         self.pass_edit.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password)
-        self._show_pass.setToolTip("Скрыть пароль" if on else "Показать пароль")
+        self._show_pass.setToolTip(self.tr("Hide password") if on else self.tr("Show password"))
         self._apply_theme()
 
     def _apply_theme(self) -> None:
@@ -163,12 +164,15 @@ class CameraForm(QDialog):
             return
         cam, pwd = self._collect()
         if not cam.host:
-            self._set_status("Укажите хост.", "danger")
+            self._set_status(self.tr("Specify host."), "danger")
             return
         url = build_rtsp_url(cam, pwd)
         # Probe over the transport the user picked — otherwise a green test
         # would say nothing about how playback will actually behave.
-        self._set_status(f"Проверка ({cam.transport.upper()})...", "text_muted")
+        self._set_status(
+            self.tr("Checking ({transport})...").format(transport=cam.transport.upper()),
+            "text_muted",
+        )
         self.test_btn.setEnabled(False)
 
         # [FIX] Run probe in a QThread so the GUI keeps responding
@@ -181,9 +185,12 @@ class CameraForm(QDialog):
 
     def _on_probe_done(self, ok: bool, info: str) -> None:
         if ok:
-            self._set_status(f"OK — {info}", "success")
+            self._set_status(self.tr("OK — {info}").format(info=info), "success")
         else:
-            self._set_status(f"Ошибка: {info}", "danger")
+            self._set_status(
+                self.tr("Error: {info}").format(info=self.tr(info)),
+                "danger",
+            )
         self.test_btn.setEnabled(True)
         if self._probe_thread is not None:
             self._probe_thread.quit()
@@ -194,7 +201,9 @@ class CameraForm(QDialog):
     def _on_accept(self) -> None:
         cam, _ = self._collect()
         if not cam.host:
-            QMessageBox.warning(self, "Ошибка", "Укажите хост / IP камеры.")
+            QMessageBox.warning(
+                self, self.tr("Error"), self.tr("Specify camera host / IP.")
+            )
             return
         self.accept()
 

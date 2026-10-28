@@ -4,6 +4,7 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -22,6 +23,7 @@ from app import secrets as keystore
 from app.config import CameraConfig
 from app.nvr_config import NvrConfig, nvr_keyring_user
 from .camera_form import CameraForm
+from .language import EN, RU, language
 from .nvr_form import NvrForm
 from .theme import theme
 
@@ -34,7 +36,7 @@ ROLE_ID = Qt.UserRole + 1     # source id
 class SettingsDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Настройки источников")
+        self.setWindowTitle(self.tr("Source settings"))
         self.resize(560, 460)
 
         self._cameras: list[CameraConfig] = cfg.load_cameras()
@@ -44,7 +46,7 @@ class SettingsDialog(QDialog):
         self.list = QListWidget()
         self.list.itemDoubleClicked.connect(lambda _i: self._edit())
 
-        self._title = QLabel("Источники")
+        self._title = QLabel(self.tr("Sources"))
         self._subtitle = QLabel("")
         self._apply_theme()
         theme.changed.connect(lambda _m: self._apply_theme())
@@ -56,27 +58,44 @@ class SettingsDialog(QDialog):
         header.addWidget(self._title)
         header.addWidget(self._subtitle)
 
-        add_cam_btn = QPushButton("Добавить камеру")
+        # ---- Language selector ----
+        self._lang_combo = QComboBox()
+        self._lang_combo.addItem(self.tr("Russian"), RU)
+        self._lang_combo.addItem(self.tr("English"), EN)
+        self._lang_combo.setCurrentIndex(0 if language.language() == RU else 1)
+        self._lang_combo.currentIndexChanged.connect(self._on_language_changed)
+        self._lang_label = QLabel(self.tr("Language:"))
+
+        lang_row = QHBoxLayout()
+        lang_row.setContentsMargins(0, 0, 0, 0)
+        lang_row.setSpacing(8)
+        lang_row.addWidget(self._lang_label)
+        lang_row.addWidget(self._lang_combo)
+        lang_row.addStretch(1)
+
+        add_cam_btn = QPushButton(self.tr("Add camera"))
         add_cam_btn.setProperty("primary", True)
         add_cam_btn.setCursor(Qt.PointingHandCursor)
         add_cam_btn.clicked.connect(self._add_camera)
 
-        add_nvr_btn = QPushButton("Добавить NVR")
+        add_nvr_btn = QPushButton(self.tr("Add NVR"))
         add_nvr_btn.setProperty("primary", True)
         add_nvr_btn.setCursor(Qt.PointingHandCursor)
         add_nvr_btn.clicked.connect(self._add_nvr)
 
-        edit_btn = QPushButton("Изменить")
+        edit_btn = QPushButton(self.tr("Edit"))
         edit_btn.setCursor(Qt.PointingHandCursor)
         edit_btn.clicked.connect(self._edit)
 
-        del_btn = QPushButton("Удалить")
+        del_btn = QPushButton(self.tr("Delete"))
         del_btn.setProperty("danger", True)
         del_btn.setCursor(Qt.PointingHandCursor)
         del_btn.clicked.connect(self._delete)
 
         side = QVBoxLayout()
         side.setSpacing(6)
+        side.addLayout(lang_row)
+        side.addSpacing(8)
         side.addWidget(add_cam_btn)
         side.addWidget(add_nvr_btn)
         side.addSpacing(8)
@@ -91,7 +110,7 @@ class SettingsDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         close_btn = buttons.button(QDialogButtonBox.Close)
-        close_btn.setText("Готово")
+        close_btn.setText(self.tr("Done"))
         close_btn.setCursor(Qt.PointingHandCursor)
         buttons.rejected.connect(self.accept)
         close_btn.clicked.connect(self.accept)
@@ -102,6 +121,28 @@ class SettingsDialog(QDialog):
         root.addLayout(header)
         root.addLayout(body, 1)
         root.addWidget(buttons)
+
+        # Restart prompt shown after a language change.
+        self._restart_prompt: QLabel | None = None
+        self._build_restart_prompt(root)
+
+    def _build_restart_prompt(self, root: QVBoxLayout) -> None:
+        self._restart_prompt = QLabel(
+            self.tr("Restart the application to apply the new language.")
+        )
+        self._restart_prompt.setWordWrap(True)
+        self._restart_prompt.setStyleSheet(
+            f"color: {theme.token('warning')}; font-size: 12px;"
+        )
+        self._restart_prompt.hide()
+        root.addWidget(self._restart_prompt)
+
+    def _on_language_changed(self, _idx: int) -> None:
+        data = self._lang_combo.currentData()
+        if data not in (RU, EN):
+            return
+        language.set_language(data)
+        self._restart_prompt.show()
 
     def _apply_theme(self) -> None:
         self._title.setStyleSheet(
@@ -117,16 +158,17 @@ class SettingsDialog(QDialog):
         self.list.clear()
         for cam in self._cameras:
             path = "" if (cam.path or "").strip() in ("", "/") else cam.path
-            # [FIX icons] Text markers instead of emoji — emoji glyphs render
-            # as tofu boxes without an emoji font installed.
-            item = QListWidgetItem(f"[CAM]  {cam.name}   ·   {cam.host}:{cam.port}{path}")
+            item = QListWidgetItem(
+                f"[CAM]  {cam.name}   ·   {cam.host}:{cam.port}{path}"
+            )
             item.setData(ROLE_KIND, "camera")
             item.setData(ROLE_ID, cam.id)
             self.list.addItem(item)
         for nvr in self._nvrs:
             ch_n = len(nvr.channels)
             item = QListWidgetItem(
-                f"[NVR]  {nvr.name}   ·   {nvr.host}:{nvr.port}   ·   каналов: {ch_n}"
+                f"[NVR]  {nvr.name}   ·   {nvr.host}:{nvr.port}   ·   "
+                f"{self.tr('channels', 'NVR channels count')}: {ch_n}"
             )
             item.setData(ROLE_KIND, "nvr")
             item.setData(ROLE_ID, nvr.id)
@@ -136,10 +178,10 @@ class SettingsDialog(QDialog):
     def _update_subtitle(self) -> None:
         parts = []
         if self._cameras:
-            parts.append(f"камер: {len(self._cameras)}")
+            parts.append(f"{self.tr('cameras', 'subtitle camera count')}: {len(self._cameras)}")
         if self._nvrs:
             parts.append(f"NVR: {len(self._nvrs)}")
-        self._subtitle.setText(", ".join(parts) if parts else "пусто")
+        self._subtitle.setText(", ".join(parts) if parts else self.tr("empty"))
 
     def _selected(self) -> tuple[str, str] | None:
         item = self.list.currentItem()
@@ -157,7 +199,7 @@ class SettingsDialog(QDialog):
             try:
                 keystore.set_password(cam.id, pwd)
             except Exception as exc:
-                QMessageBox.warning(self, "Keyring", f"Не удалось сохранить пароль: {exc}")
+                QMessageBox.warning(self, self.tr("Keyring"), self.tr("Failed to save password: {exc}").format(exc=exc))
             self._changed = True
             self._refresh_list()
 
@@ -173,7 +215,7 @@ class SettingsDialog(QDialog):
             try:
                 keystore.set_password(updated.id, new_pwd)
             except Exception as exc:
-                QMessageBox.warning(self, "Keyring", f"Не удалось сохранить пароль: {exc}")
+                QMessageBox.warning(self, self.tr("Keyring"), self.tr("Failed to save password: {exc}").format(exc=exc))
             self._changed = True
             self._refresh_list()
 
@@ -181,7 +223,10 @@ class SettingsDialog(QDialog):
         cam = next((c for c in self._cameras if c.id == cam_id), None)
         if not cam:
             return
-        if QMessageBox.question(self, "Удалить", f"Удалить камеру «{cam.name}»?") != QMessageBox.Yes:
+        if QMessageBox.question(
+            self, self.tr("Delete"),
+            self.tr("Delete camera «{name}»?").format(name=cam.name),
+        ) != QMessageBox.Yes:
             return
         self._cameras = cfg.delete_camera(self._cameras, cam.id)
         keystore.delete_password(cam.id)
@@ -198,7 +243,7 @@ class SettingsDialog(QDialog):
             try:
                 keystore.set_password(nvr_keyring_user(nvr.id), pwd)
             except Exception as exc:
-                QMessageBox.warning(self, "Keyring", f"Не удалось сохранить пароль: {exc}")
+                QMessageBox.warning(self, self.tr("Keyring"), self.tr("Failed to save password: {exc}").format(exc=exc))
             self._changed = True
             self._refresh_list()
 
@@ -214,7 +259,7 @@ class SettingsDialog(QDialog):
             try:
                 keystore.set_password(nvr_keyring_user(updated.id), new_pwd)
             except Exception as exc:
-                QMessageBox.warning(self, "Keyring", f"Не удалось сохранить пароль: {exc}")
+                QMessageBox.warning(self, self.tr("Keyring"), self.tr("Failed to save password: {exc}").format(exc=exc))
             self._changed = True
             self._refresh_list()
 
@@ -222,7 +267,10 @@ class SettingsDialog(QDialog):
         nvr = next((n for n in self._nvrs if n.id == nvr_id), None)
         if not nvr:
             return
-        if QMessageBox.question(self, "Удалить", f"Удалить регистратор «{nvr.name}»?") != QMessageBox.Yes:
+        if QMessageBox.question(
+            self, self.tr("Delete"),
+            self.tr("Delete recorder «{name}»?").format(name=nvr.name),
+        ) != QMessageBox.Yes:
             return
         self._nvrs = nvrcfg.delete_nvr(self._nvrs, nvr.id)
         keystore.delete_password(nvr_keyring_user(nvr.id))

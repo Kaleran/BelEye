@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.language import language
 from app.nvr_config import NvrConfig
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -195,8 +196,10 @@ class PlaybackView(QWidget):
         # user repeatedly hit "I clicked the 2nd camera but got CAM04 / port
         # 4 records" — having the port in the title settles it.
         self.setWindowTitle(
-            f"Архив — {nvr.name} / {channel_name} (порт #{channel_number}) / "
-            f"{QDate.currentDate().toString('yyyy-MM-dd')}"
+            self.tr("Archive — {nvr} / {ch} (port #{port}) / {date}").format(
+                nvr=nvr.name, ch=channel_name, port=channel_number,
+                date=QDate.currentDate().toString("yyyy-MM-dd"),
+            )
         )
         # [FIX channel] Some Xiongmai/HVR firmware always replies with the
         # CAM01 stream regardless of which channel's file was requested.
@@ -226,7 +229,7 @@ class PlaybackView(QWidget):
         left = QVBoxLayout()
         left.setSpacing(8)
         left.addWidget(self.calendar)
-        left.addWidget(QLabel("Записи за день:"))
+        left.addWidget(QLabel(self.tr("Records for day:")))
         left.addWidget(self.file_list, 1)
         left_w = QWidget()
         left_w.setLayout(left)
@@ -236,26 +239,28 @@ class PlaybackView(QWidget):
         self.player = FFmpegPlayer(parent=self, input_mode="pipe", input_codec="h264")
         self.player.setMinimumSize(480, 320)
 
-        self.btn_play = QPushButton("▶ Воспроизвести")
+        self.btn_play = QPushButton("▶ " + self.tr("Play"))
         self.btn_play.setCursor(Qt.PointingHandCursor)
         self.btn_play.clicked.connect(self._on_play_pause)
-        self.btn_stop = QPushButton("■ Стоп")
+        self.btn_stop = QPushButton("■ " + self.tr("Stop"))
         self.btn_stop.setCursor(Qt.PointingHandCursor)
         self.btn_stop.clicked.connect(self._on_stop)
         self.btn_speed = QPushButton("1×")
         self.btn_speed.setCursor(Qt.PointingHandCursor)
         self.btn_speed.clicked.connect(self._cycle_speed)
-        self.btn_export = QPushButton("Экспорт…")
+        self.btn_export = QPushButton(self.tr("Export…"))
         self.btn_export.setCursor(Qt.PointingHandCursor)
         self.btn_export.clicked.connect(self._on_export)
         # [D2] Always-visible Close button. The native window decoration is
         # easy to miss on some WMs, and during debugging "the window is
         # stuck" makes Stop+close-by-X feel painful.
-        self.btn_close = QPushButton("× Закрыть")
+        self.btn_close = QPushButton("× " + self.tr("Close"))
         self.btn_close.setCursor(Qt.PointingHandCursor)
-        self.btn_close.setToolTip("Закрыть окно архива (Esc)")
+        self.btn_close.setToolTip(self.tr("Close archive window (Esc)"))
         self.btn_close.clicked.connect(self.close)
-        self._status = QLabel("Выберите запись в списке или кликните по таймлайну.")
+        self._status = QLabel(
+            self.tr("Select a record from the list or click the timeline.")
+        )
 
         transport = QHBoxLayout()
         transport.addWidget(self.btn_play)
@@ -336,8 +341,10 @@ class PlaybackView(QWidget):
         # DVRIP session dedicated to this archive window.
         self._client = DvripClient(self, auto_discover=False)
         self._client.loginOk.connect(self._on_login)
-        self._client.loginFailed.connect(lambda r: self._set_status(f"Логин отклонён: {r}"))
-        self._client.error.connect(lambda e: self._set_status(f"Сеть: {e}"))
+        self._client.loginFailed.connect(
+            lambda r: self._set_status(self.tr("Login rejected: {r}").format(r=r))
+        )
+        self._client.error.connect(lambda e: self._set_status(self.tr("Network: {e}").format(e=e)))
         self._client.fileList.connect(self._on_file_list)
         self._client.playbackChunk.connect(self._on_playback_chunk)
         self._client.connect_to(nvr.host, nvr.port, nvr.username, password)
@@ -359,7 +366,11 @@ class PlaybackView(QWidget):
         nxt = datetime(year + (month == 12), (month % 12) + 1, 1)
         last = nxt - timedelta(seconds=1)
         self._loading_scope = "month"
-        self._set_status(f"Загрузка записей за {year}-{month:02d}…")
+        self._set_status(
+            self.tr("Loading records for {year}-{month:02d}…").format(
+                year=year, month=month
+            )
+        )
         # [FIX cap] DvripClient.query_files chunks under the 64-record cap.
         self._client.query_files(self.channel_number, first, last)
 
@@ -471,7 +482,7 @@ class PlaybackView(QWidget):
 
     def _auto_select_latest_day_with_records(self) -> None:
         if not self._month_records:
-            self._set_status("За этот месяц записей нет.")
+            self._set_status(self.tr("No records for this month."))
             return
         latest = max(r.begin.date() for r in self._month_records)
         target = QDate(latest.year, latest.month, latest.day)
@@ -538,12 +549,15 @@ class PlaybackView(QWidget):
             self.file_list.addItem(item)
         self.timeline.set_day(self.calendar.selectedDate(), records)
         self.setWindowTitle(
-            f"Архив — {self.nvr.name} / {self.channel_name} "
-            f"(порт #{self.channel_number}) / "
-            f"{self.calendar.selectedDate().toString('yyyy-MM-dd')}"
+            self.tr("Archive — {nvr} / {ch} (port #{port}) / {date}").format(
+                nvr=self.nvr.name, ch=self.channel_name,
+                port=self.channel_number,
+                date=self.calendar.selectedDate().toString("yyyy-MM-dd"),
+            )
         )
         self._set_status(
-            f"Записей за день: {len(records)}" if records else "Записей за этот день нет."
+            self.tr("Records for day: {n}").format(n=len(records))
+            if records else self.tr("No records for this day.")
         )
 
     # ----- transport (streaming wired in a later task) ------------------
@@ -566,14 +580,14 @@ class PlaybackView(QWidget):
             self.timeline.set_cursor(when)
             self._start_playback(rec, seek_to=when)
         else:
-            self._set_status("В этот момент записи нет.")
+            self._set_status(self.tr("No record at this time."))
 
     def _start_playback(self, rec: FileRecord | None, seek_to: datetime | None = None) -> None:
         if rec is None:
-            self._set_status("Нет записи для воспроизведения.")
+            self._set_status(self.tr("No record to play."))
             return
         if not self._client:
-            self._set_status("Нет соединения с регистратором.")
+            self._set_status(self.tr("No connection to recorder."))
             return
         # [FIX codec] Tear EVERYTHING down before the next claim — ffmpeg
         # subprocess, parser, accumulator, and tell the NVR to stop. Any
@@ -628,10 +642,12 @@ class PlaybackView(QWidget):
         self._speed_idx = self._speed_levels.index(0)
         self.btn_speed.setText(self._speed_labels[self._speed_idx])
         self.timeline.set_cursor(seek_to or rec.begin)
-        self.btn_play.setText("⏸ Пауза")
+        self.btn_play.setText("⏸ " + self.tr("Pause"))
         self._set_status(
-            f"Воспроизведение: {rec.begin.strftime('%H:%M:%S')}–"
-            f"{rec.end.strftime('%H:%M:%S')}"
+            self.tr("Playing: {start}–{end}").format(
+                start=rec.begin.strftime("%H:%M:%S"),
+                end=rec.end.strftime("%H:%M:%S"),
+            )
         )
 
     def _on_playback_chunk(self, data: bytes) -> None:
@@ -766,10 +782,12 @@ class PlaybackView(QWidget):
             except Exception:
                 log.exception("[FIX archive-bp] pause failed")
             self.player.suspend_stall_watchdog(True)
-            self.btn_play.setText("▶ Продолжить")
+            self.btn_play.setText("▶ " + self.tr("Continue"))
             if self._pause_position is not None:
                 self._set_status(
-                    f"Пауза на {self._pause_position.strftime('%H:%M:%S')}"
+                    self.tr("Paused at {pos}").format(
+                        pos=self._pause_position.strftime("%H:%M:%S")
+                    )
                 )
             return
         self._start_playback(self._selected_record())
@@ -793,8 +811,8 @@ class PlaybackView(QWidget):
         self._paused = False
         self._pause_position = None
         self.timeline.set_cursor(None)
-        self.btn_play.setText("▶ Воспроизвести")
-        self._set_status("Остановлено.")
+        self.btn_play.setText("▶ " + self.tr("Play"))
+        self._set_status(self.tr("Stopped."))
 
     def _cycle_speed(self) -> None:
         """[FIX speed3] Cycle speeds. Sends the right number of DVRIP
@@ -838,17 +856,18 @@ class PlaybackView(QWidget):
     def _on_export(self) -> None:
         rec = self._selected_record()
         if rec is None:
-            self._set_status("Выберите запись для экспорта.")
+            self._set_status(self.tr("Select a record to export."))
             return
         if self._exporter is not None:
-            self._set_status("Экспорт уже идёт. Дождитесь завершения.")
+            self._set_status(self.tr("Export in progress. Wait for completion."))
             return
         suggested = (
             f"{self.nvr.name}_{self.channel_name}_"
             f"{rec.begin.strftime('%Y%m%d_%H%M%S')}.mp4"
         ).replace(" ", "_")
         path, _ = QFileDialog.getSaveFileName(
-            self, "Экспорт фрагмента в mp4", suggested, "MP4 video (*.mp4)"
+            self, self.tr("Export fragment to mp4"), suggested,
+            self.tr("MP4 video (*.mp4)")
         )
         if not path:
             return
@@ -858,12 +877,16 @@ class PlaybackView(QWidget):
         # is complete (the same chunks feed the player AND the exporter).
         self._exporter = MP4Exporter(self)
         self._exporter_out_path = path
-        self._exporter.progress.connect(lambda line: self._set_status(f"Экспорт: {line}"))
+        self._exporter.progress.connect(
+            lambda line: self._set_status(self.tr("Export: {line}").format(line=line))
+        )
         self._exporter.finished.connect(self._on_export_finished)
         self.btn_export.setEnabled(False)
         log.info("[export] queued out=%s file=%s", path, rec.file_name)
         self._start_playback(rec)
-        self._set_status(f"Запись стартует для экспорта в {path}…")
+        self._set_status(
+            self.tr("Record starting for export to {path}…").format(path=path)
+        )
 
     def _on_export_finished(self, ok: bool, msg: str) -> None:
         self.btn_export.setEnabled(True)
@@ -871,9 +894,9 @@ class PlaybackView(QWidget):
             self._exporter.deleteLater()
             self._exporter = None
         if ok:
-            QMessageBox.information(self, "Экспорт", msg)
+            QMessageBox.information(self, self.tr("Export"), msg)
         else:
-            QMessageBox.warning(self, "Экспорт", msg)
+            QMessageBox.warning(self, self.tr("Export"), msg)
         self._set_status(msg)
 
     # ----- misc ---------------------------------------------------------

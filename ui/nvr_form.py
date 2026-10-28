@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from app.nvr_config import NvrChannel, NvrConfig
 from dvrip.client import DvripClient
+from ui.language import language
 from .icon_util import eye_icon
 from .theme import theme
 
@@ -39,7 +40,7 @@ class NvrForm(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Видеорегистратор (NVR)")
+        self.setWindowTitle(self.tr("Video recorder (NVR)"))
         self.setMinimumWidth(440)
         self._nvr = nvr or NvrConfig()
         self._discovered: list[NvrChannel] | None = None
@@ -72,18 +73,19 @@ class NvrForm(QDialog):
         pass_container.setLayout(pass_row)
 
         form = QFormLayout()
-        form.addRow("Название:", self.name_edit)
-        form.addRow("Хост / IP:", self.host_edit)
-        form.addRow("Порт:", self.port_spin)
-        form.addRow("Логин:", self.user_edit)
-        form.addRow("Пароль:", pass_container)
+        form.addRow(self.tr("Name:"), self.name_edit)
+        form.addRow(self.tr("Host / IP:"), self.host_edit)
+        form.addRow(self.tr("Port:"), self.port_spin)
+        form.addRow(self.tr("Login:"), self.user_edit)
+        form.addRow(self.tr("Password:"), pass_container)
 
-        self.test_btn = QPushButton("Проверить соединение")
+        self.test_btn = QPushButton(self.tr("Test connection"))
         self.test_btn.setCursor(Qt.PointingHandCursor)
         self.test_btn.clicked.connect(self._on_test)
         self.test_status = QLabel(
-            f"Найдено каналов: {len(self._nvr.channels)}" if self._nvr.channels else
-            "Введите данные и нажмите «Проверить соединение»."
+            self.tr("Channels found: {n}").format(n=len(self._nvr.channels))
+            if self._nvr.channels else
+            self.tr("Enter details and press «Test connection».")
         )
         self.test_status.setWordWrap(True)
         # Semantic status color; remembered so a theme flip can re-resolve it.
@@ -91,11 +93,11 @@ class NvrForm(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         ok_btn = buttons.button(QDialogButtonBox.Ok)
-        ok_btn.setText("Сохранить")
+        ok_btn.setText(self.tr("Save"))
         ok_btn.setProperty("primary", True)
         ok_btn.setCursor(Qt.PointingHandCursor)
         cancel_btn = buttons.button(QDialogButtonBox.Cancel)
-        cancel_btn.setText("Отмена")
+        cancel_btn.setText(self.tr("Cancel"))
         cancel_btn.setCursor(Qt.PointingHandCursor)
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
@@ -115,7 +117,7 @@ class NvrForm(QDialog):
 
     def _toggle_pass(self, on: bool) -> None:
         self.pass_edit.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password)
-        self._show_pass.setToolTip("Скрыть пароль" if on else "Показать пароль")
+        self._show_pass.setToolTip(self.tr("Hide password") if on else self.tr("Show password"))
         self._apply_theme()
 
     def _apply_theme(self) -> None:
@@ -131,26 +133,26 @@ class NvrForm(QDialog):
             return
         host = self.host_edit.text().strip()
         if not host:
-            self._set_status("Укажите хост / IP.", error=True)
+            self._set_status(self.tr("Specify host / IP."), error=True)
             return
         user = self.user_edit.text()
         password = self.pass_edit.text()
         port = int(self.port_spin.value())
 
-        self._set_status("Подключение...", error=False)
+        self._set_status(self.tr("Connecting..."), error=False)
         self.test_btn.setEnabled(False)
 
         c = DvripClient(self)
         c.loginOk.connect(self._on_login_ok)
-        c.loginFailed.connect(lambda r: self._finish_probe(False, f"Логин отклонён: {r}"))
-        c.error.connect(lambda e: self._finish_probe(False, f"Сеть: {e}"))
+        c.loginFailed.connect(lambda r: self._finish_probe(False, self.tr("Login rejected: {r}").format(r=r)))
+        c.error.connect(lambda e: self._finish_probe(False, self.tr("Network: {e}").format(e=e)))
         c.channelsDiscovered.connect(self._on_channels)
         self._client = c
 
         self._timeout_timer = QTimer(self)
         self._timeout_timer.setSingleShot(True)
         self._timeout_timer.timeout.connect(
-            lambda: self._finish_probe(False, "Таймаут (нет ответа за 12 с).")
+            lambda: self._finish_probe(False, self.tr("Timeout (no response within 12 s)."))
         )
         self._timeout_timer.start(PROBE_TIMEOUT_MS)
 
@@ -158,22 +160,27 @@ class NvrForm(QDialog):
         c.connect_to(host, port, user, password)
 
     def _on_login_ok(self, sid: int) -> None:
-        self._set_status(f"Логин ok (session 0x{sid:08x}). Жду список каналов...", error=False)
+        self._set_status(
+            self.tr("Login ok (session 0x{sid:08x}). Waiting for channel list...").format(sid=sid),
+            error=False,
+        )
 
     def _on_channels(self, channels: list) -> None:
         # channels: list[dvrip.client.Channel]
         if not channels:
             self._finish_probe(
                 False,
-                "Логин ok, но прошивка не вернула список каналов. "
-                "Пришли лог `[DVRIP] recv …` — подкручу парсер.",
+                self.tr(
+                    "Login ok, but firmware did not return a channel list. "
+                    "Send the log `[DVRIP] recv …` — I'll tweak the parser."
+                ),
             )
             return
         self._discovered = [
             NvrChannel(number=int(c.number), name=str(c.name) or f"CH{c.number:02d}", enabled=True)
             for c in channels
         ]
-        self._finish_probe(True, f"Найдено каналов: {len(self._discovered)}")
+        self._finish_probe(True, self.tr("Channels found: {n}").format(n=len(self._discovered)))
 
     def _finish_probe(self, ok: bool, message: str) -> None:
         self._set_status(message, error=not ok)
@@ -192,7 +199,7 @@ class NvrForm(QDialog):
     def _set_status(self, text: str, *, error: bool) -> None:
         if error:
             token = "danger"
-        elif "Найдено" in text or "ok" in text.lower():
+        elif "found" in text or "ok" in text.lower():
             token = "success"
         else:
             token = "text_muted"
@@ -204,13 +211,17 @@ class NvrForm(QDialog):
 
     def _on_accept(self) -> None:
         if not self.host_edit.text().strip():
-            QMessageBox.warning(self, "Ошибка", "Укажите хост / IP регистратора.")
+            QMessageBox.warning(
+                self, self.tr("Error"), self.tr("Specify recorder host / IP.")
+            )
             return
         if self._discovered is None and not self._nvr.channels:
             res = QMessageBox.question(
                 self,
-                "Без проверки",
-                "Соединение не проверено и каналов нет. Сохранить всё равно?",
+                self.tr("Without verification"),
+                self.tr(
+                    "Connection not verified and no channels found. Save anyway?"
+                ),
             )
             if res != QMessageBox.Yes:
                 return
@@ -231,5 +242,5 @@ class NvrForm(QDialog):
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         # Make sure we never leave a probe socket dangling.
         if self._client is not None:
-            self._finish_probe(False, "Закрыто.")
+            self._finish_probe(False, self.tr("Closed."))
         super().closeEvent(event)

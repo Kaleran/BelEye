@@ -8,6 +8,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app.logging_setup import setup_logging
+from ui.language import language
 from video.ffmpeg_player import find_ffmpeg, find_ffprobe
 
 APP_ICON_DIR = Path(__file__).resolve().parent / "resources" / "icons"
@@ -56,8 +57,8 @@ def _install_excepthook() -> None:
         try:
             if QApplication.instance() is not None:
                 QMessageBox.critical(
-                    None, "Внутренняя ошибка",
-                    f"{exc_type.__name__}: {exc}\n\nПодробности в логе.",
+                    None, language.tr("Internal error"),
+                    f"{exc_type.__name__}: {exc}\n\n{language.tr('Details in the log.')}",
                 )
         except Exception:
             pass
@@ -82,18 +83,19 @@ def main() -> int:
     else:
         log.warning("App icon not found at %s", APP_ICON_PATH)
 
+    language.install(app, language.initial_language())
     _apply_theme(app)
 
     if not find_ffmpeg() or not find_ffprobe():
         QMessageBox.critical(
             None,
-            "Зависимость отсутствует",
-            "Не найдены `ffmpeg` и/или `ffprobe`.\n\n"
-            "Установите FFmpeg:\n"
-            "  • Arch:    sudo pacman -S ffmpeg\n"
-            "  • Debian:  sudo apt install ffmpeg\n"
-            "  • macOS:   brew install ffmpeg\n"
-            "  • Windows: https://www.gyan.dev/ffmpeg/builds/\n",
+            language.tr("Dependency missing"),
+            language.tr("`ffmpeg` and/or `ffprobe` not found.\n\n")
+            + language.tr("Install FFmpeg:\n")
+            + "  • Arch:    sudo pacman -S ffmpeg\n"
+            + "  • Debian:  sudo apt install ffmpeg\n"
+            + "  • macOS:   brew install ffmpeg\n"
+            + "  • Windows: https://www.gyan.dev/ffmpeg/builds/\n",
         )
         return 1
 

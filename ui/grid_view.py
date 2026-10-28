@@ -57,7 +57,9 @@ class GridView(QWidget):
         self._single_layout.setSpacing(0)
         self._single_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._empty = QLabel("Камеры не настроены.\nОткройте «Настройки» и добавьте RTSP-камеру.")
+        self._empty = QLabel(
+            self.tr("Cameras not configured.\nOpen «Settings» and add an RTSP camera.")
+        )
         self._style_empty()
         theme.changed.connect(lambda _m: self._style_empty())
         self._empty.setAlignment(Qt.AlignCenter)

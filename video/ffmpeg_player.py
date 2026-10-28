@@ -147,7 +147,7 @@ class FFmpegPlayer(QWidget):
         self._stopped = True
         self._backoff_idx = 0
         self._frame: Optional[QImage] = None
-        self._status_msg: str = "Подключение..."
+        self._status_msg: str = self.tr("Connecting...")
 
         # Subprocess state
         self._proc: Optional[QProcess] = None
@@ -245,7 +245,7 @@ class FFmpegPlayer(QWidget):
         self._stopped = False
         self._backoff_idx = 0
         self._first_frame_seen = False
-        self._status_msg = "Подключение..."
+        self._status_msg = self.tr("Connecting...")
         self.update()
         self._start_process()
 
@@ -262,7 +262,7 @@ class FFmpegPlayer(QWidget):
         self._kill_process(detach=True)
         if not preserve_frame:
             self._frame = None
-            self._status_msg = "Остановлено"
+            self._status_msg = self.tr("Stopped")
             self.update()
 
     def is_running(self) -> bool:
@@ -604,7 +604,7 @@ class FFmpegPlayer(QWidget):
             reason = self._best_error_reason() or f"exit {exit_code}"
             self._on_failure(reason)
         else:
-            self._on_failure("поток оборвался")
+            self._on_failure(self.tr("stream interrupted"))
 
     def _on_proc_error(self, err: QProcess.ProcessError) -> None:
         log.warning("[FIX] QProcess error: %s", int(err))
@@ -623,14 +623,16 @@ class FFmpegPlayer(QWidget):
             " | ".join(self._stderr_tail[-5:]) or "<empty>",
         )
         self._kill_process()
-        self._on_failure(self._best_error_reason() or "не получены размеры потока")
+        self._on_failure(
+            self._best_error_reason() or self.tr("stream dimensions not received")
+        )
 
     # Failure / reconnect ----------------------------------------------
 
     def _on_failure(self, reason: str) -> None:
         if self._stopped:
             return
-        self._status_msg = f"Ошибка: {reason} — переподключение..."
+        self._status_msg = self.tr("Error: {reason} — reconnecting...").format(reason=reason)
         self.update()
         self.streamDown.emit(reason)
         self._schedule_reconnect()

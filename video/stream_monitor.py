@@ -51,7 +51,7 @@ def probe_rtsp(url: str, timeout_s: float = 8.0,
             timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:
-        return False, "timeout (камера не отвечает)"
+        return False, "timeout (camera not responding)"
     except OSError as exc:
         return False, str(exc)
 

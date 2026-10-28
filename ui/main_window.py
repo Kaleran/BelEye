@@ -25,6 +25,7 @@ from app import secrets as keystore
 from app.nvr_config import nvr_keyring_user
 from .grid_view import GridView
 from .icon_util import svg_icon
+from .language import language
 from .prefs import prefs
 from .settings_dialog import SettingsDialog
 from .theme import theme
@@ -35,7 +36,7 @@ log = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("BelEye — Видеонаблюдение")
+        self.setWindowTitle(self.tr("BelEye — Video Surveillance"))
         # [FIX hygiene] Restore last window geometry; fall back to a sane
         # default on first run.
         from PySide6.QtCore import QSettings
@@ -95,7 +96,7 @@ class MainWindow(QMainWindow):
     # Toolbar / banner --------------------------------------------------
 
     def _build_toolbar(self) -> None:
-        tb = QToolBar("Главная панель", self)
+        tb = QToolBar(self.tr("Main toolbar"), self)
         tb.setMovable(False)
         # iconSize matches the padded pixmap (14 icon + 8 right transparent padding).
         tb.setIconSize(QSize(14 + 8, 14))
@@ -109,27 +110,27 @@ class MainWindow(QMainWindow):
 
         # Icon-text gap is baked into the icon pixmap (transparent right pad)
         # so the labels can use plain text without leading spaces.
-        self.act_settings = QAction(svg_icon("settings"), "Настройки", self)
+        self.act_settings = QAction(svg_icon("settings"), self.tr("Settings"), self)
         self.act_settings.triggered.connect(self._open_settings)
         tb.addAction(self.act_settings)
 
-        self.act_refresh = QAction(svg_icon("refresh"), "Обновить", self)
+        self.act_refresh = QAction(svg_icon("refresh"), self.tr("Refresh"), self)
         self.act_refresh.triggered.connect(self._reload_cameras)
         tb.addAction(self.act_refresh)
 
         tb.addSeparator()
 
-        self.act_view = QAction(svg_icon("grid"), "Сетка / 1 камера", self)
+        self.act_view = QAction(svg_icon("grid"), self.tr("Grid / 1 camera"), self)
         self.act_view.setShortcut(QKeySequence("Ctrl+G"))
         self.act_view.triggered.connect(self.grid.toggle_mode)
         tb.addAction(self.act_view)
 
-        self.act_reorder = QAction(svg_icon("reorder"), "Перетащить", self)
-        self.act_reorder.setToolTip("Включить режим перетаскивания камер")
+        self.act_reorder = QAction(svg_icon("reorder"), self.tr("Drag"), self)
+        self.act_reorder.setToolTip(self.tr("Enable camera drag-and-drop mode"))
         self.act_reorder.triggered.connect(self._enter_reorder_mode)
         tb.addAction(self.act_reorder)
 
-        self.act_fullscreen = QAction(svg_icon("fullscreen"), "Полный экран", self)
+        self.act_fullscreen = QAction(svg_icon("fullscreen"), self.tr("Full screen"), self)
         self.act_fullscreen.setShortcut(QKeySequence("F11"))
         self.act_fullscreen.triggered.connect(self._toggle_fullscreen)
         tb.addAction(self.act_fullscreen)
@@ -149,9 +150,9 @@ class MainWindow(QMainWindow):
         self.act_hq.setCheckable(True)
         self.act_hq.setChecked(prefs.hq_all())
         self.act_hq.setToolTip(
-            "Высокое качество на всех камерах.\n"
-            "Раскрытие камеры перестаёт переподключаться — картинка уже в полном "
-            "качестве. Нагружает регистратор и сеть: при 4+ каналах возможны подвисания."
+            "High quality on all cameras.\n"
+            "Expanding a camera no longer reconnects — the image is already in full "
+            "quality. Loads the recorder and network: with 4+ channels, freezes are possible."
         )
         self.act_hq.toggled.connect(prefs.set_hq_all)
         tb.addAction(self.act_hq)
@@ -198,9 +199,9 @@ class MainWindow(QMainWindow):
         # The toggle advertises the theme you will GET, not the one you're in.
         going_light = theme.is_dark()
         self.act_theme.setIcon(svg_icon("sun" if going_light else "moon", right_pad=0))
-        label = "Светлая тема" if going_light else "Тёмная тема"
+        label = self.tr("Light theme") if going_light else self.tr("Dark theme")
         self.act_theme.setText(label)
-        self.act_theme.setToolTip(f"Переключить на: {label}")
+        self.act_theme.setToolTip(self.tr("Switch to: {label}").format(label=label))
 
     def _build_reorder_banner(self) -> QFrame:
         banner = QFrame()
@@ -216,8 +217,8 @@ class MainWindow(QMainWindow):
         icon.setFixedSize(32, 32)
         icon.setAlignment(Qt.AlignCenter)
 
-        title = QLabel("Режим перетаскивания")
-        subtitle = QLabel("Перетащите одну камеру на другую, чтобы поменять их местами")
+        title = QLabel(self.tr("Drag-and-drop mode"))
+        subtitle = QLabel(self.tr("Drag one camera onto another to swap them"))
 
         text_col = QVBoxLayout()
         text_col.setContentsMargins(0, 0, 0, 0)
@@ -228,12 +229,12 @@ class MainWindow(QMainWindow):
         # Buttons: primary (filled accent) + ghost. Both are plain QPushButtons
         # now — the global QSS styles them via the [primary] property, so they
         # follow the theme with no per-widget stylesheet.
-        self.btn_apply = QPushButton("Применить")
+        self.btn_apply = QPushButton(self.tr("Apply"))
         self.btn_apply.setProperty("primary", True)
         self.btn_apply.setCursor(Qt.PointingHandCursor)
         self.btn_apply.clicked.connect(self._apply_reorder)
 
-        self.btn_cancel = QPushButton("Отменить")
+        self.btn_cancel = QPushButton(self.tr("Cancel"))
         self.btn_cancel.setCursor(Qt.PointingHandCursor)
         self.btn_cancel.clicked.connect(self._cancel_reorder)
 
@@ -383,9 +384,13 @@ class MainWindow(QMainWindow):
         self.grid.set_nvr_channels(items)
         if nvrs:
             self.statusBar().showMessage(
-                f"Загружено: камер {len(cameras)}, NVR {len(nvrs)} ({total} каналов)", 3000)
+                self.tr("Loaded: {cameras} camera(s), {nvrs} NVR(s) ({channels} channel(s))").format(
+                    cameras=len(cameras), nvrs=len(nvrs), channels=total
+                ),
+                3000,
+            )
         else:
-            self.statusBar().showMessage(f"Загружено камер: {len(cameras)}", 3000)
+            self.statusBar().showMessage(self.tr("Loaded: {cameras} camera(s)").format(cameras=len(cameras)), 3000)
 
     def _ensure_control_client(self, nvr) -> None:
         """Create (once) a persistent control connection for this NVR.
@@ -493,7 +498,7 @@ class MainWindow(QMainWindow):
         self.act_settings.setEnabled(False)
         self.act_refresh.setEnabled(False)
         self.statusBar().showMessage(
-            "Режим перетаскивания: перетащите камеру на другую, чтобы поменять местами"
+            self.tr("Drag-and-drop mode: drag one camera onto another to swap them")
         )
 
     def _apply_reorder(self) -> None:
@@ -503,7 +508,7 @@ class MainWindow(QMainWindow):
         self.act_settings.setEnabled(True)
         self.act_refresh.setEnabled(True)
         log.info("[FIX] Apply reorder: %d cameras", len(new_order))
-        self.statusBar().showMessage("Порядок камер сохранён", 3000)
+        self.statusBar().showMessage(self.tr("Camera order saved"), 3000)
 
     def _cancel_reorder(self) -> None:
         log.info("[FIX] Cancel reorder")
@@ -512,7 +517,7 @@ class MainWindow(QMainWindow):
         self.act_reorder.setEnabled(True)
         self.act_settings.setEnabled(True)
         self.act_refresh.setEnabled(True)
-        self.statusBar().showMessage("Изменения порядка отменены", 3000)
+        self.statusBar().showMessage(self.tr("Order changes cancelled"), 3000)
 
     def _on_order_changed(self, new_order: list[str]) -> None:
         """Persist the new tile order. The list mixes RTSP camera ids and NVR

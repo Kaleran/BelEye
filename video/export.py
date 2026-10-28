@@ -39,7 +39,7 @@ class MP4Exporter(QObject):
     def start(self, out_path: str, codec: str) -> bool:
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
-            self.finished.emit(False, "ffmpeg не найден в PATH")
+            self.finished.emit(False, self.tr("ffmpeg not found in PATH"))
             return False
         # [FIX hygiene] A second start() used to overwrite self._proc and
         # orphan the still-running previous ffmpeg. Kill it first.
@@ -144,11 +144,14 @@ class MP4Exporter(QObject):
         self._idle_timer.stop()
         ok = code == 0 and status == QProcess.NormalExit
         if ok:
-            msg = f"Сохранено: {self._out_path} ({self._bytes_written // 1024} KB записано в stdin)"
+            msg = self.tr("Saved: {path} ({bytes_written} KB written)").format(
+                path=self._out_path,
+                bytes_written=self._bytes_written // 1024,
+            )
             log.info("[export] done OK %s", self._out_path)
         else:
             tail = " | ".join(self._stderr_tail[-3:]) if self._stderr_tail else "(no stderr)"
-            msg = f"Ошибка ffmpeg (code={code}): {tail}"
+            msg = self.tr("ffmpeg error (code={code}): {tail}").format(code=code, tail=tail)
             log.warning("[export] failed: %s", msg)
         self.finished.emit(ok, msg)
         if self._proc is not None:

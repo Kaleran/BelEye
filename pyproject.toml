@@ -18,3 +18,9 @@ beleye = "main:main"
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+# Translation workflow:
+#   Extract new strings:
+#     pylupdate6 main.py ui/ video/ -ts resources/translations/beleye_en.ts
+#   Compile Russian translations:
+#     lrelease resources/translations/beleye_ru.ts -qm resources/translations/beleye_ru.qm

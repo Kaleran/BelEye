@@ -463,9 +463,9 @@ class CameraTile(DraggableTileMixin, QFrame):
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         menu = QMenu(self)
-        act_edit = QAction("Изменить...", menu)
-        act_remove = QAction("Удалить", menu)
-        act_reconnect = QAction("Переподключить", menu)
+        act_edit = QAction(self.tr("Edit..."), menu)
+        act_remove = QAction(self.tr("Delete"), menu)
+        act_reconnect = QAction(self.tr("Reconnect"), menu)
         menu.addAction(act_edit)
         menu.addAction(act_reconnect)
         menu.addSeparator()

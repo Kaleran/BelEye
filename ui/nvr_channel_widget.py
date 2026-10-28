@@ -520,10 +520,10 @@ class NvrChannelTile(DraggableTileMixin, QFrame):
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         menu = QMenu(self)
-        act_archive = QAction("Архив…", menu)
-        act_reconnect = QAction("Переподключить", menu)
-        act_remove = QAction("Скрыть этот канал", menu)
-        act_edit = QAction("Настройки регистратора...", menu)
+        act_archive = QAction(self.tr("Archive…"), menu)
+        act_reconnect = QAction(self.tr("Reconnect"), menu)
+        act_remove = QAction(self.tr("Hide this channel"), menu)
+        act_edit = QAction(self.tr("Recorder settings..."), menu)
         menu.addAction(act_archive)
         menu.addSeparator()
         menu.addAction(act_reconnect)
