@@ -37,7 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.language import language
+from ui.language import language
 from app.nvr_config import NvrConfig
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
